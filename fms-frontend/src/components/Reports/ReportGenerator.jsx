@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -25,7 +25,6 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { formatCurrency } from '../../utils/formatCurrency';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 const ReportGenerator = () => {
@@ -35,14 +34,12 @@ const ReportGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [error, setError] = useState(null);
-  const reportRef = useRef(null);
 
   // Function to handle PDF download
-  const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
+  const handleDownloadPDF = () => {
+    if (!reportData) return;
     
     try {
-      // Show loading state
       setLoading(true);
       
       // Get the report title based on report type
@@ -52,40 +49,167 @@ const ReportGenerator = () => {
       if (reportType === 'expenses') reportTitle = 'Expense Analysis';
       if (reportType === 'budget') reportTitle = 'Budget vs Actual';
       
-      // Get date range for filename
-      const startDateFormatted = formatDate(startDate).replace(/\s/g, '-');
-      const endDateFormatted = formatDate(endDate).replace(/\s/g, '-');
-      const filename = `${reportTitle}-${startDateFormatted}-to-${endDateFormatted}.pdf`;
+      // Format dates for filename
+      const startDateStr = formatDate(startDate).replace(/\s/g, '-');
+      const endDateStr = formatDate(endDate).replace(/\s/g, '-');
+      const filename = `${reportTitle}-${startDateStr}-to-${endDateStr}`;
       
-      // Create canvas from the report element
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2, // Higher scale for better quality
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      // Calculate dimensions to fit in A4
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const imgData = canvas.toDataURL('image/png');
-      
-      // Create PDF
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // Create PDF document
+      const doc = new jsPDF();
       
       // Add title
-      pdf.setFontSize(16);
-      pdf.text(reportTitle, 105, 15, { align: 'center' });
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(reportTitle, 105, 20, { align: 'center' });
       
       // Add date range
-      pdf.setFontSize(10);
-      pdf.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 105, 22, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 105, 30, { align: 'center' });
       
-      // Add image of the report
-      pdf.addImage(imgData, 'PNG', 0, 30, imgWidth, imgHeight);
+      // Add summary section
+      doc.setFontSize(14);
+      doc.text('Summary', 20, 45);
+      doc.setFontSize(10);
       
-      // Save PDF
-      pdf.save(filename);
+      let yPos = 55;
+      
+      // Add summary data based on report type
+      if (reportType === 'transactions') {
+        doc.text(`Total Transactions: ${reportData.summary.totalTransactions}`, 20, yPos);
+        yPos += 10;
+        doc.text(`Total Income: ${formatCurrency(reportData.summary.totalIncome)}`, 20, yPos);
+        yPos += 10;
+        doc.text(`Total Expenses: ${formatCurrency(reportData.summary.totalExpenses)}`, 20, yPos);
+        yPos += 10;
+        doc.text(`Net Amount: ${formatCurrency(reportData.summary.netAmount)}`, 20, yPos);
+      } else if (reportType === 'income') {
+        doc.text(`Total Income: ${formatCurrency(reportData.summary.totalIncome)}`, 20, yPos);
+        yPos += 10;
+        doc.text('Income by Category:', 20, yPos);
+        yPos += 10;
+        Object.entries(reportData.summary.incomeByCategory).forEach(([category, amount]) => {
+          doc.text(`${category}: ${formatCurrency(amount)}`, 30, yPos);
+          yPos += 8;
+        });
+      } else if (reportType === 'expenses') {
+        doc.text(`Total Expenses: ${formatCurrency(reportData.summary.totalExpenses)}`, 20, yPos);
+        yPos += 10;
+        doc.text('Expenses by Category:', 20, yPos);
+        yPos += 10;
+        Object.entries(reportData.summary.expensesByCategory).forEach(([category, amount]) => {
+          doc.text(`${category}: ${formatCurrency(amount)}`, 30, yPos);
+          yPos += 8;
+        });
+      } else if (reportType === 'budget') {
+        doc.text(`Total Budget: ${formatCurrency(reportData.summary.totalBudget)}`, 20, yPos);
+        yPos += 10;
+        doc.text(`Total Spent: ${formatCurrency(reportData.summary.totalActual)}`, 20, yPos);
+        yPos += 10;
+        doc.text(`Remaining: ${formatCurrency(reportData.summary.remaining)}`, 20, yPos);
+      }
+      
+      // Add transactions table if applicable
+      if (['transactions', 'income', 'expenses'].includes(reportType) && reportData.data.length > 0) {
+        yPos += 20;
+        doc.setFontSize(14);
+        doc.text('Transactions', 20, yPos);
+        yPos += 10;
+        
+        // Table headers
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Date', 20, yPos);
+        doc.text('Description', 60, yPos);
+        doc.text('Category', 120, yPos);
+        doc.text('Amount', 170, yPos);
+        doc.setFont(undefined, 'normal');
+        
+        // Table rows
+        yPos += 8;
+        reportData.data.forEach((transaction, index) => {
+          // Check if we need a new page
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+            // Add headers again
+            doc.setFont(undefined, 'bold');
+            doc.text('Date', 20, yPos);
+            doc.text('Description', 60, yPos);
+            doc.text('Category', 120, yPos);
+            doc.text('Amount', 170, yPos);
+            doc.setFont(undefined, 'normal');
+            yPos += 8;
+          }
+          
+          doc.text(formatDate(transaction.date), 20, yPos);
+          doc.text(transaction.description.substring(0, 30), 60, yPos);
+          doc.text(transaction.category, 120, yPos);
+          const amount = formatCurrency(transaction.amount);
+          doc.text(amount, 170, yPos);
+          
+          yPos += 8;
+        });
+      }
+      
+      // Add budget table if applicable
+      if (reportType === 'budget' && reportData.data.length > 0) {
+        yPos += 20;
+        doc.setFontSize(14);
+        doc.text('Budget Details', 20, yPos);
+        yPos += 10;
+        
+        // Table headers
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('Category', 20, yPos);
+        doc.text('Budget', 70, yPos);
+        doc.text('Actual', 110, yPos);
+        doc.text('Remaining', 150, yPos);
+        doc.text('% Used', 190, yPos);
+        doc.setFont(undefined, 'normal');
+        
+        // Table rows
+        yPos += 8;
+        reportData.data.forEach((item) => {
+          // Check if we need a new page
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+            // Add headers again
+            doc.setFont(undefined, 'bold');
+            doc.text('Category', 20, yPos);
+            doc.text('Budget', 70, yPos);
+            doc.text('Actual', 110, yPos);
+            doc.text('Remaining', 150, yPos);
+            doc.text('% Used', 190, yPos);
+            doc.setFont(undefined, 'normal');
+            yPos += 8;
+          }
+          
+          const remaining = item.budget - item.actual;
+          const percentUsed = ((item.actual / item.budget) * 100).toFixed(0);
+          
+          doc.text(item.category, 20, yPos);
+          doc.text(formatCurrency(item.budget), 70, yPos);
+          doc.text(formatCurrency(item.actual), 110, yPos);
+          doc.text(formatCurrency(remaining), 150, yPos);
+          doc.text(`${percentUsed}%`, 190, yPos);
+          
+          yPos += 8;
+        });
+      }
+      
+      // Add footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`Page ${i} of ${pageCount} - Generated on ${new Date().toLocaleDateString()}`, 105, 290, { align: 'center' });
+      }
+      
+      // Save the PDF
+      doc.save(`${filename}.pdf`);
+      
     } catch (err) {
       console.error('Error generating PDF:', err);
       setError('Failed to generate PDF. Please try again.');
@@ -309,7 +433,7 @@ const ReportGenerator = () => {
           <Typography sx={{ mt: 2 }}>Generating your report...</Typography>
         </Paper>
       ) : reportData ? (
-        <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }} ref={reportRef}>
+        <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" fontWeight="medium">
               {reportType === 'transactions' && 'Transaction Report'}
@@ -473,6 +597,130 @@ const ReportGenerator = () => {
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="category" />
+                  <YAxis tickFormatter={(value) => `₹${value/1000}k`} />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="budget" name="Budget" fill="#8884d8" />
+                  <Bar dataKey="actual" name="Actual" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
+          
+          {/* Data Table */}
+          {(reportType === 'transactions' || reportType === 'income' || reportType === 'expenses') && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>Detailed Transactions</Typography>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell>Category</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {reportData.data.length > 0 ? (
+                      reportData.data.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell>{formatDate(transaction.date)}</TableCell>
+                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={transaction.category} 
+                              size="small" 
+                              color={transaction.amount > 0 ? 'success' : 'default'}
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell align="right" sx={{ 
+                            color: transaction.amount >= 0 ? 'success.main' : 'error.main',
+                            fontWeight: 'medium'
+                          }}>
+                            {formatCurrency(transaction.amount)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">No transactions found for the selected period</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+          
+          {reportType === 'budget' && (
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>Budget Details</Typography>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Category</TableCell>
+                      <TableCell align="right">Budget</TableCell>
+                      <TableCell align="right">Actual</TableCell>
+                      <TableCell align="right">Remaining</TableCell>
+                      <TableCell align="right">% Used</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {reportData.data.map((item) => {
+                      const remaining = item.budget - item.actual;
+                      const percentUsed = (item.actual / item.budget) * 100;
+                      
+                      return (
+                        <TableRow key={item.category}>
+                          <TableCell>{item.category}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.budget)}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.actual)}</TableCell>
+                          <TableCell align="right" sx={{ color: remaining >= 0 ? 'success.main' : 'error.main' }}>
+                            {formatCurrency(remaining)}
+                          </TableCell>
+                          <TableCell align="right">
+                            <Chip 
+                              label={`${percentUsed.toFixed(0)}%`} 
+                              size="small" 
+                              color={percentUsed > 90 ? 'error' : percentUsed > 75 ? 'warning' : 'success'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+          
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={() => window.print()} sx={{ mr: 2 }}>
+              Print Report
+            </Button>
+            <Button variant="contained" onClick={handleDownloadPDF}>
+              Download PDF
+            </Button>
+          </Box>
+        </Paper>
+      ) : (
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No Report Generated
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Select a report type and date range, then click "Generate Report" to view your financial data.
+          </Typography>
+        </Paper>
+      )}
+    </Box>
+  );
+};
+
+export default ReportGenerator;                  <XAxis dataKey="category" />
                   <YAxis tickFormatter={(value) => `₹${value/1000}k`} />
                   <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />

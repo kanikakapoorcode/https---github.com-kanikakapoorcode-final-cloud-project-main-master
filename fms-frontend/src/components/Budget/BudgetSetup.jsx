@@ -18,6 +18,7 @@ import {
 import { Add, Remove, Save, Cancel, ArrowBack } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { Link, useNavigate } from 'react-router-dom';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export default function BudgetSetup() {
   const [budgetData, setBudgetData] = useState({
@@ -130,7 +131,7 @@ export default function BudgetSetup() {
                 value={budgetData.monthlyIncome}
                 onChange={handleIncomeChange}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                 }}
                 variant="outlined"
                 size="small"
@@ -146,7 +147,7 @@ export default function BudgetSetup() {
                 value={budgetData.savingsGoal}
                 onChange={handleSavingsChange}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                 }}
                 variant="outlined"
                 size="small"
@@ -164,23 +165,23 @@ export default function BudgetSetup() {
               </Typography>
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2">Monthly Income:</Typography>
-                <Typography variant="h6">${budgetData.monthlyIncome.toFixed(2)}</Typography>
+                <Typography variant="h6">₹{budgetData.monthlyIncome.toFixed(2)}</Typography>
               </Box>
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2">Total Allocated:</Typography>
                 <Typography variant="h6" color={totalAllocated > budgetData.monthlyIncome ? 'error.main' : 'text.primary'}>
-                  ${totalAllocated.toFixed(2)}
+                  ₹{totalAllocated.toFixed(2)}
                 </Typography>
               </Box>
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2">Savings Goal:</Typography>
-                <Typography variant="h6">${budgetData.savingsGoal.toFixed(2)}</Typography>
+                <Typography variant="h6">₹{budgetData.savingsGoal.toFixed(2)}</Typography>
               </Box>
               <Divider sx={{ my: 1 }} />
               <Box>
                 <Typography variant="body2">Remaining:</Typography>
                 <Typography variant="h6" color={remaining < 0 ? 'error.main' : 'success.main'}>
-                  ${remaining.toFixed(2)}
+                  ₹{remaining.toFixed(2)}
                 </Typography>
               </Box>
             </CardContent>
@@ -214,7 +215,7 @@ export default function BudgetSetup() {
                     value={category.amount}
                     onChange={(e) => handleCategoryChange(category.id, 'amount', e.target.value)}
                     InputProps={{
-                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                     }}
                     size="small"
                   />
@@ -258,7 +259,7 @@ export default function BudgetSetup() {
                   value={newAmount}
                   onChange={(e) => setNewAmount(e.target.value)}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                   }}
                   size="small"
                 />
@@ -278,7 +279,7 @@ export default function BudgetSetup() {
 
             {remaining < 0 && (
               <Alert severity="error" sx={{ mt: 3 }}>
-                Warning: Your total allocated budget exceeds your monthly income by ${Math.abs(remaining).toFixed(2)}
+                Warning: Your total allocated budget exceeds your monthly income by ₹{Math.abs(remaining).toFixed(2)}
               </Alert>
             )}
           </Paper>

@@ -35,7 +35,7 @@ const ReportGenerator = () => {
   const [reportData, setReportData] = useState(null);
   const [error, setError] = useState(null);
 
-  // Function to handle PDF download
+  // Enhanced PDF download function with better formatting
   const handleDownloadPDF = () => {
     if (!reportData) {
       setError('No report data available to download');
@@ -52,36 +52,367 @@ const ReportGenerator = () => {
       if (reportType === 'expenses') reportTitle = 'Expense Analysis';
       if (reportType === 'budget') reportTitle = 'Budget vs Actual';
       
-      // Create PDF document
-      const doc = new jsPDF();
+      // Format dates for filename
+      const startDateStr = formatDate(startDate).replace(/\s/g, '-');
+      const endDateStr = formatDate(endDate).replace(/\s/g, '-');
+      const filename = `${reportTitle}-${startDateStr}-to-${endDateStr}`;
       
-      // Add title
+      // Create PDF document in landscape orientation for better tables
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      // Add company header
+      doc.setFillColor(41, 98, 255); // Blue header
+      doc.rect(0, 0, 297, 15, 'F');
+      doc.setTextColor(255, 255, 255); // White text
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Finance Management System', 148.5, 10, { align: 'center' });
+      
+      // Add report title
+      doc.setTextColor(0, 0, 0); // Black text
       doc.setFontSize(18);
-      doc.text(reportTitle, 105, 20, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text(reportTitle, 148.5, 25, { align: 'center' });
       
       // Add date range
       doc.setFontSize(12);
-      doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 105, 30, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 148.5, 32, { align: 'center' });
       
-      // Add summary data
+      // Add generation timestamp
+      const now = new Date();
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100); // Gray text
+      doc.text(`Generated on: ${now.toLocaleString('en-IN')}`, 148.5, 38, { align: 'center' });
+      
+      // Add summary section with colored box
+      doc.setFillColor(240, 240, 240); // Light gray background
+      doc.rect(15, 45, 267, 40, 'F'); // Increase height to accommodate vertical layout
+      
+      doc.setTextColor(0, 0, 0); // Black text
       doc.setFontSize(14);
-      doc.text('Summary', 20, 45);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary', 20, 53);
       
-      let yPos = 55;
-      doc.setFontSize(10);
-      
+      // Add summary data based on report type
       if (reportType === 'transactions') {
-        doc.text(`Total Transactions: ${reportData.summary.totalTransactions}`, 20, yPos);
-        yPos += 10;
-        doc.text(`Total Income: ${formatCurrency(reportData.summary.totalIncome)}`, 20, yPos);
-        yPos += 10;
-        doc.text(`Total Expenses: ${formatCurrency(reportData.summary.totalExpenses)}`, 20, yPos);
-        yPos += 10;
-        doc.text(`Net Amount: ${formatCurrency(reportData.summary.netAmount)}`, 20, yPos);
+        // Left align all summary items vertically with consistent formatting
+        const yStart = 60;
+        const lineHeight = 7;
+        
+        // Keep font consistent for all summary items
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        
+        doc.text(`Total Transactions: ${reportData.summary.totalTransactions}`, 20, yStart);
+        doc.text(`Total Income: ${formatCurrency(reportData.summary.totalIncome)}`, 20, yStart + lineHeight);
+        doc.text(`Total Expenses: ${formatCurrency(reportData.summary.totalExpenses)}`, 20, yStart + lineHeight * 2);
+        doc.text(`Net Amount: ${formatCurrency(reportData.summary.netAmount)}`, 20, yStart + lineHeight * 3);
+        
+        // Add profit/loss indicator
+        const netAmount = reportData.summary.netAmount;
+        let profitLossText = '';
+        
+        if (netAmount > 0) {
+          profitLossText = `PROFIT: ${formatCurrency(netAmount)}`;
+          doc.setTextColor(0, 128, 0); // Green for profit
+        } else if (netAmount < 0) {
+          profitLossText = `LOSS: ${formatCurrency(Math.abs(netAmount))}`;
+          doc.setTextColor(255, 0, 0); // Red for loss
+        } else {
+          profitLossText = 'BREAK-EVEN';
+          doc.setTextColor(0, 0, 255); // Blue for break-even
+        }
+        
+        // Add a highlighted box for profit/loss
+        if (netAmount !== 0) {
+          // Calculate profit/loss percentage
+          const totalExpenses = Math.abs(reportData.summary.totalExpenses);
+          const profitLossPercentage = totalExpenses > 0 
+            ? ((Math.abs(netAmount) / totalExpenses) * 100).toFixed(1) 
+            : 0;
+            
+          profitLossText += ` (${profitLossPercentage}%)`;
+        }
+        
+        // Create a highlighted box for profit/loss
+        const textWidth = doc.getTextWidth(profitLossText);
+        if (netAmount > 0) {
+          doc.setFillColor(230, 255, 230); // Light green background
+        } else if (netAmount < 0) {
+          doc.setFillColor(255, 230, 230); // Light red background
+        } else {
+          doc.setFillColor(230, 230, 255); // Light blue background
+        }
+        
+        // Position the profit/loss indicator below the summary items
+        doc.roundedRect(20, yStart + lineHeight * 4, textWidth + 10, 8, 1, 1, 'F');
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(profitLossText, 25, yStart + lineHeight * 4 + 5);
+        
+        // Reset text color and font
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+      } else if (reportType === 'income') {
+        doc.text(`Total Income: ${formatCurrency(reportData.summary.totalIncome)}`, 20, 60);
+        
+        let xPos = 20;
+        let yPos = 68;
+        doc.text('Income by Category:', xPos, yPos);
+        yPos += 6;
+        
+        Object.entries(reportData.summary.incomeByCategory).forEach(([category, amount], index) => {
+          doc.text(`${category}: ${formatCurrency(amount)}`, xPos, yPos);
+          yPos += 6;
+          
+          // Create a new column after every 3 items
+          if ((index + 1) % 3 === 0 && index < Object.entries(reportData.summary.incomeByCategory).length - 1) {
+            xPos += 90;
+            yPos = 68 + 6;
+          }
+        });
+      } else if (reportType === 'expenses') {
+        doc.text(`Total Expenses: ${formatCurrency(reportData.summary.totalExpenses)}`, 20, 60);
+        
+        let xPos = 20;
+        let yPos = 68;
+        doc.text('Expenses by Category:', xPos, yPos);
+        yPos += 6;
+        
+        Object.entries(reportData.summary.expensesByCategory).forEach(([category, amount], index) => {
+          doc.text(`${category}: ${formatCurrency(amount)}`, xPos, yPos);
+          yPos += 6;
+          
+          // Create a new column after every 3 items
+          if ((index + 1) % 3 === 0 && index < Object.entries(reportData.summary.expensesByCategory).length - 1) {
+            xPos += 90;
+            yPos = 68 + 6;
+          }
+        });
+      } else if (reportType === 'budget') {
+        // Left align all summary items vertically with consistent formatting
+        const yStart = 60;
+        const lineHeight = 7;
+        
+        // Keep font consistent for all summary items
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        
+        doc.text(`Total Budget: ${formatCurrency(reportData.summary.totalBudget)}`, 20, yStart);
+        doc.text(`Total Spent: ${formatCurrency(reportData.summary.totalActual)}`, 20, yStart + lineHeight);
+        doc.text(`Remaining: ${formatCurrency(reportData.summary.remaining)}`, 20, yStart + lineHeight * 2);
+        doc.text(`Utilization: ${((reportData.summary.totalActual / reportData.summary.totalBudget) * 100).toFixed(1)}%`, 20, yStart + lineHeight * 3);
+        
+        // Add profit/loss indicator for budget
+        const remaining = reportData.summary.remaining;
+        let budgetStatusText = '';
+        
+        if (remaining > 0) {
+          budgetStatusText = `UNDER BUDGET: ${formatCurrency(remaining)}`;
+          doc.setTextColor(0, 128, 0); // Green for under budget
+        } else if (remaining < 0) {
+          budgetStatusText = `OVER BUDGET: ${formatCurrency(Math.abs(remaining))}`;
+          doc.setTextColor(255, 0, 0); // Red for over budget
+        } else {
+          budgetStatusText = 'ON BUDGET';
+          doc.setTextColor(0, 0, 255); // Blue for on budget
+        }
+        
+        // Add a highlighted box for budget status
+        if (remaining !== 0) {
+          // Calculate over/under budget percentage
+          const totalBudget = reportData.summary.totalBudget;
+          const budgetVariancePercentage = totalBudget > 0 
+            ? ((Math.abs(remaining) / totalBudget) * 100).toFixed(1) 
+            : 0;
+            
+          budgetStatusText += ` (${budgetVariancePercentage}%)`;
+        }
+        
+        // Create a highlighted box for budget status
+        const textWidth = doc.getTextWidth(budgetStatusText);
+        if (remaining > 0) {
+          doc.setFillColor(230, 255, 230); // Light green background
+        } else if (remaining < 0) {
+          doc.setFillColor(255, 230, 230); // Light red background
+        } else {
+          doc.setFillColor(230, 230, 255); // Light blue background
+        }
+        
+        // Position the budget status indicator below the summary items
+        doc.roundedRect(20, yStart + lineHeight * 4, textWidth + 10, 8, 1, 1, 'F');
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(budgetStatusText, 25, yStart + lineHeight * 4 + 5);
+        
+        // Reset text color and font
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+      }
+      
+      // Add data tables
+      let tableY = 85;
+      
+      // Add transactions table if applicable
+      if (['transactions', 'income', 'expenses'].includes(reportType) && reportData.data.length > 0) {
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Transaction Details', 20, tableY);
+        tableY += 8;
+        
+        // Table headers with colored background
+        doc.setFillColor(220, 220, 220); // Light gray background
+        doc.rect(15, tableY, 267, 7, 'F');
+        
+        doc.setFontSize(10);
+        doc.text('Date', 20, tableY + 5);
+        doc.text('Description', 60, tableY + 5);
+        doc.text('Category', 160, tableY + 5);
+        doc.text('Amount', 260, tableY + 5, { align: 'right' });
+        
+        tableY += 10;
+        doc.setFont('helvetica', 'normal');
+        
+        // Table rows with alternating colors
+        reportData.data.forEach((transaction, index) => {
+          // Check if we need a new page
+          if (tableY > 180) {
+            doc.addPage();
+            tableY = 20;
+            
+            // Add headers on new page
+            doc.setFillColor(220, 220, 220);
+            doc.rect(15, tableY, 267, 7, 'F');
+            
+            doc.setFont('helvetica', 'bold');
+            doc.text('Date', 20, tableY + 5);
+            doc.text('Description', 60, tableY + 5);
+            doc.text('Category', 160, tableY + 5);
+            doc.text('Amount', 260, tableY + 5, { align: 'right' });
+            
+            tableY += 10;
+            doc.setFont('helvetica', 'normal');
+          }
+          
+          // Alternating row colors
+          if (index % 2 === 1) {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(15, tableY - 5, 267, 7, 'F');
+          }
+          
+          doc.text(formatDate(transaction.date), 20, tableY);
+          
+          // Truncate long descriptions
+          const description = transaction.description.length > 40 
+            ? transaction.description.substring(0, 40) + '...' 
+            : transaction.description;
+          
+          doc.text(description, 60, tableY);
+          doc.text(transaction.category, 160, tableY);
+          
+          // Right align and color the amount
+          const amount = formatCurrency(transaction.amount);
+          if (transaction.amount >= 0) {
+            doc.setTextColor(0, 128, 0); // Green for positive
+          } else {
+            doc.setTextColor(255, 0, 0); // Red for negative
+          }
+          doc.text(amount, 260, tableY, { align: 'right' });
+          doc.setTextColor(0, 0, 0); // Reset to black
+          
+          tableY += 7;
+        });
+      }
+      
+      // Add budget table if applicable
+      if (reportType === 'budget' && reportData.data.length > 0) {
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Budget Details', 20, tableY);
+        tableY += 8;
+        
+        // Table headers with colored background
+        doc.setFillColor(220, 220, 220);
+        doc.rect(15, tableY, 267, 7, 'F');
+        
+        doc.setFontSize(10);
+        doc.text('Category', 20, tableY + 5);
+        doc.text('Budget', 80, tableY + 5, { align: 'right' });
+        doc.text('Actual', 120, tableY + 5, { align: 'right' });
+        doc.text('Remaining', 160, tableY + 5, { align: 'right' });
+        doc.text('% Used', 200, tableY + 5, { align: 'right' });
+        doc.text('Status', 240, tableY + 5);
+        
+        tableY += 10;
+        doc.setFont('helvetica', 'normal');
+        
+        // Table rows with alternating colors
+        reportData.data.forEach((item, index) => {
+          // Alternating row colors
+          if (index % 2 === 1) {
+            doc.setFillColor(245, 245, 245);
+            doc.rect(15, tableY - 5, 267, 7, 'F');
+          }
+          
+          const remaining = item.budget - item.actual;
+          const percentUsed = ((item.actual / item.budget) * 100).toFixed(0);
+          
+          doc.text(item.category, 20, tableY);
+          doc.text(formatCurrency(item.budget), 80, tableY, { align: 'right' });
+          doc.text(formatCurrency(item.actual), 120, tableY, { align: 'right' });
+          
+          // Color the remaining amount
+          if (remaining >= 0) {
+            doc.setTextColor(0, 128, 0); // Green for positive
+          } else {
+            doc.setTextColor(255, 0, 0); // Red for negative
+          }
+          doc.text(formatCurrency(remaining), 160, tableY, { align: 'right' });
+          doc.setTextColor(0, 0, 0); // Reset to black
+          
+          doc.text(`${percentUsed}%`, 200, tableY, { align: 'right' });
+          
+          // Status text
+          let status = 'On Track';
+          if (percentUsed > 90) {
+            status = 'Critical';
+            doc.setTextColor(255, 0, 0); // Red
+          } else if (percentUsed > 75) {
+            status = 'Warning';
+            doc.setTextColor(255, 165, 0); // Orange
+          }
+          doc.text(status, 240, tableY);
+          doc.setTextColor(0, 0, 0); // Reset to black
+          
+          tableY += 7;
+        });
+      }
+      
+      // Add footer to all pages
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        
+        // Add footer line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(15, 190, 282, 190);
+        
+        // Add footer text
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Finance Management System - ${reportTitle}`, 148.5, 195, { align: 'center' });
+        doc.text(`Page ${i} of ${pageCount}`, 282, 195, { align: 'right' });
       }
       
       // Save the PDF
-      doc.save(`${reportTitle}.pdf`);
+      doc.save(`${filename}.pdf`);
       
     } catch (err) {
       console.error('Error generating PDF:', err);

@@ -18,6 +18,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Settings, Edit, TrendingUp, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 // Chart component
 const BudgetChart = ({ data }) => {
@@ -28,7 +29,7 @@ const BudgetChart = ({ data }) => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="body2">{item.category}</Typography>
             <Typography variant="body2" fontWeight="medium">
-              ${item.spent.toFixed(2)} / ${item.budget.toFixed(2)}
+              ₹{item.spent.toFixed(2)} / ₹{item.budget.toFixed(2)}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -159,7 +160,7 @@ export default function BudgetOverview() {
                 </IconButton>
               </Box>
               <Typography variant="h4" component="div" sx={{ mb: 1 }}>
-                ${budgetData.totalBudget.toFixed(2)}
+                ₹{budgetData.totalBudget.toFixed(2)}
               </Typography>
               <LinearProgress 
                 variant="determinate" 
@@ -169,7 +170,7 @@ export default function BudgetOverview() {
               />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
-                  Spent: ${budgetData.totalSpent.toFixed(2)}
+                  Spent: ₹{budgetData.totalSpent.toFixed(2)}
                 </Typography>
                 <Typography 
                   variant="body2" 
@@ -190,14 +191,14 @@ export default function BudgetOverview() {
                 Remaining Budget
               </Typography>
               <Typography variant="h4" component="div" color={budgetData.remainingBudget < 0 ? "error.main" : "success.main"}>
-                ${budgetData.remainingBudget.toFixed(2)}
+                ₹{budgetData.remainingBudget.toFixed(2)}
               </Typography>
               <Box sx={{ mt: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Daily budget remaining: ${(budgetData.remainingBudget / 10).toFixed(2)}
+                  Daily budget remaining: ₹{(budgetData.remainingBudget / 10).toFixed(2)}
                 </Typography>
               </Box>
             </CardContent>
@@ -216,7 +217,7 @@ export default function BudgetOverview() {
                 </IconButton>
               </Box>
               <Typography variant="h4" component="div" sx={{ mb: 1 }}>
-                ${budgetData.currentSavings.toFixed(2)}
+                ₹{budgetData.currentSavings.toFixed(2)}
               </Typography>
               <LinearProgress 
                 variant="determinate" 
@@ -226,7 +227,7 @@ export default function BudgetOverview() {
               />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
-                  Goal: ${budgetData.savingsGoal.toFixed(2)}
+                  Goal: ₹{budgetData.savingsGoal.toFixed(2)}
                 </Typography>
                 <Typography variant="body2" color="success.main" fontWeight="medium">
                   {Math.round(savingsProgress)}% Saved
@@ -270,19 +271,19 @@ export default function BudgetOverview() {
                   <ArrowUpward sx={{ color: 'success.main', mr: 1 }} />
                   <Typography>Income</Typography>
                 </Box>
-                <Typography variant="h6" color="success.main">$3,500.00</Typography>
+                <Typography variant="h6" color="success.main">₹3,500.00</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <ArrowDownward sx={{ color: 'error.main', mr: 1 }} />
                   <Typography>Expenses</Typography>
                 </Box>
-                <Typography variant="h6" color="error.main">$1,850.75</Typography>
+                <Typography variant="h6" color="error.main">₹1,850.75</Typography>
               </Box>
               <Divider sx={{ my: 2 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography fontWeight="medium">Net Income</Typography>
-                <Typography variant="h6" color="success.main">$1,649.25</Typography>
+                <Typography variant="h6" color="success.main">₹1,649.25</Typography>
               </Box>
             </Box>
           </Paper>
@@ -304,7 +305,7 @@ export default function BudgetOverview() {
               .map((category, index) => (
                 <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
                   <Typography>{category.category}</Typography>
-                  <Typography fontWeight="medium">${category.spent.toFixed(2)}</Typography>
+                  <Typography fontWeight="medium">₹{category.spent.toFixed(2)}</Typography>
                 </Box>
               ))
             }

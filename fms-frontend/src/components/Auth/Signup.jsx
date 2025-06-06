@@ -17,12 +17,14 @@ import {
   Link as MuiLink
 } from '@mui/material';
 import { authAPI } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 
 const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const validationSchema = Yup.object({
     name: Yup.string().required('Name is required'),
@@ -57,10 +59,13 @@ const Signup = () => {
         console.log('Signup successful:', response.data);
         setSuccess(true);
         
-        // Redirect to login page after 2 seconds
+        // Log the user in automatically after successful registration
+        await login(values.email, values.password);
+        
+        // Redirect to dashboard after 1 second to show the success message briefly
         setTimeout(() => {
-          navigate('/auth/login');
-        }, 2000);
+          navigate('/dashboard');
+        }, 1000);
       } catch (err) {
         console.error('Signup error:', err);
         setError(err.response?.data?.error || 'Failed to register. Please try again.');
@@ -85,12 +90,12 @@ const Signup = () => {
         
         <Snackbar 
           open={success} 
-          autoHideDuration={2000} 
+          autoHideDuration={1000} 
           onClose={() => setSuccess(false)}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="success" sx={{ width: '100%' }}>
-            Registration successful! Redirecting to login...
+            Registration successful! Redirecting to dashboard...
           </Alert>
         </Snackbar>
         
